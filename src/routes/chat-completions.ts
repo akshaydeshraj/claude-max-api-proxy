@@ -31,18 +31,19 @@ function handleSDKError(c: import("hono").Context, err: unknown) {
 }
 
 chatCompletions.post("/v1/chat/completions", async (c) => {
-  let body: OpenAIChatRequest;
+  let raw: unknown;
   try {
-    body = await c.req.json<OpenAIChatRequest>();
+    raw = await c.req.json();
   } catch {
     return badRequest(c, "Invalid JSON in request body");
   }
 
-  const validationError = validateRequest(body);
+  const validationError = validateRequest(raw);
   if (validationError) {
     return badRequest(c, validationError);
   }
 
+  const body = raw as OpenAIChatRequest;
   const params = convertRequest(body);
 
   // Resolve conversation ID for session-based multi-turn

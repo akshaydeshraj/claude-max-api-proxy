@@ -81,8 +81,9 @@ dashboard.get("/api/stats/hourly", (c) => {
  * GET /api/stats/recent — Recent requests.
  */
 dashboard.get("/api/stats/recent", (c) => {
-  const limit = parseInt(c.req.query("limit") || "50", 10);
-  return c.json(getRecentRequests(Math.min(limit, 200)));
+  const parsed = parseInt(c.req.query("limit") || "50", 10);
+  const limit = Number.isNaN(parsed) ? 50 : Math.min(parsed, 200);
+  return c.json(getRecentRequests(limit));
 });
 
 function parsePeriod(period?: string): number {

@@ -170,3 +170,19 @@
 | 5. Auth | 120 | auth middleware: 100% |
 | 6. Analytics | 129 | db: 100% |
 | 7. Docker | 129 | TypeScript compiles clean |
+
+## Codex Review Fixes
+
+### Commit 8 — Address Codex review findings
+
+**Issues fixed:**
+- [P1] `validateRequest` now accepts `unknown` and rejects non-object JSON (null, arrays, numbers)
+- [P1] `promptContentBlocks` now passed to SDK `query()` via `buildPromptArg()` helper
+- [P2] `clearTimeout` moved to `finally` blocks in both streaming and non-streaming paths
+- [P2] Dashboard `/api/stats/recent?limit=abc` guarded against NaN → falls back to 50
+
+**Issue noted (by design):**
+- [P2] Streaming errors return HTTP 200 with SSE error events — this is standard SSE behavior (once headers are sent, status can't change). Pre-stream errors are caught at route level.
+
+**Tests:** 132 passing (3 new validation tests)
+**TypeScript:** Clean compile

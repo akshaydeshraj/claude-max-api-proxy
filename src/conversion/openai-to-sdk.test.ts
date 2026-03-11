@@ -271,6 +271,18 @@ describe("convertRequest", () => {
 });
 
 describe("validateRequest", () => {
+  it("rejects null body", () => {
+    expect(validateRequest(null)).toBe("Request body must be a JSON object");
+  });
+
+  it("rejects array body", () => {
+    expect(validateRequest([1, 2, 3])).toBe("Request body must be a JSON object");
+  });
+
+  it("rejects number body", () => {
+    expect(validateRequest(42)).toBe("Request body must be a JSON object");
+  });
+
   it("returns null for valid request", () => {
     expect(
       validateRequest({

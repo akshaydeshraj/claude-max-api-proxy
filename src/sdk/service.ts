@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { v4 as uuidv4 } from "uuid";
 import type { SDKQueryParams } from "../conversion/openai-to-sdk.js";
+import type { AnthropicContentBlock } from "../conversion/image-handler.js";
 import {
   buildChatResponse,
   buildUsage,
@@ -83,6 +84,15 @@ function buildSDKOptions(
   return options;
 }
 
+function buildPromptArg(params: SDKQueryParams) {
+  if (params.promptContentBlocks && params.promptContentBlocks.length > 0) {
+    // Pass content blocks (text + images) via the prompt field.
+    // The SDK accepts these when cast appropriately.
+    return params.promptContentBlocks as never;
+  }
+  return params.prompt;
+}
+
 function resolveSDKSessionId(conversationId?: string | null): string | undefined {
   if (!conversationId) return undefined;
   const session = getSession(conversationId);
@@ -152,8 +162,9 @@ export async function completeNonStreaming(
   await semaphore.acquire();
   const startTime = Date.now();
 
+  const { abortController, timeout } = setupAbort(abortSignal);
+
   try {
-    const { abortController, timeout } = setupAbort(abortSignal);
     const existingSessionId = resolveSDKSessionId(params.conversationId);
     const options = buildSDKOptions(params, abortController, existingSessionId);
 
@@ -163,7 +174,7 @@ export async function completeNonStreaming(
     let stats = { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
 
     const q = query({
-      prompt: params.prompt,
+      prompt: buildPromptArg(params),
       options: options as never,
     });
 
@@ -182,8 +193,6 @@ export async function completeNonStreaming(
         sdkSessionId = (message as Record<string, unknown>).session_id as string | undefined;
       }
     }
-
-    clearTimeout(timeout);
 
     // Store session for multi-turn
     storeSession(params.conversationId, sdkSessionId, params.model, params.messageCount);
@@ -204,6 +213,7 @@ export async function completeNonStreaming(
       sdkSessionId,
     };
   } finally {
+    clearTimeout(timeout);
     semaphore.release();
   }
 }
@@ -233,14 +243,14 @@ export function completeStreaming(
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       await semaphore.acquire();
+      const { abortController, timeout } = setupAbort(abortSignal);
 
       try {
-        const { abortController, timeout } = setupAbort(abortSignal);
         const existingSessionId = resolveSDKSessionId(params.conversationId);
         const options = buildSDKOptions(params, abortController, existingSessionId);
 
         const q = query({
-          prompt: params.prompt,
+          prompt: buildPromptArg(params),
           options: options as never,
         });
 
@@ -293,7 +303,6 @@ export function completeStreaming(
             // Done
             controller.enqueue(encoder.encode(formatSSEDone()));
 
-            clearTimeout(timeout);
             statsResolve({
               ...stats,
               durationMs: Date.now() - startTime,
@@ -316,6 +325,7 @@ export function completeStreaming(
           durationMs: Date.now() - startTime,
         });
       } finally {
+        clearTimeout(timeout);
         controller.close();
         semaphore.release();
       }

@@ -114,23 +114,27 @@ export function convertRequest(req: OpenAIChatRequest): SDKQueryParams {
   };
 }
 
-export function validateRequest(req: OpenAIChatRequest): string | null {
-  if (!req.messages || !Array.isArray(req.messages) || req.messages.length === 0) {
+export function validateRequest(req: unknown): string | null {
+  if (req === null || typeof req !== "object" || Array.isArray(req)) {
+    return "Request body must be a JSON object";
+  }
+  const r = req as OpenAIChatRequest;
+  if (!r.messages || !Array.isArray(r.messages) || r.messages.length === 0) {
     return "messages is required and must be a non-empty array";
   }
 
-  if (!req.model) {
+  if (!r.model) {
     return "model is required";
   }
 
-  if (req.n !== undefined && req.n > 1) {
+  if (r.n !== undefined && r.n > 1) {
     return "n > 1 is not supported";
   }
 
   if (
-    req.tool_choice &&
-    typeof req.tool_choice === "string" &&
-    req.tool_choice === "required"
+    r.tool_choice &&
+    typeof r.tool_choice === "string" &&
+    r.tool_choice === "required"
   ) {
     return "tool use is not supported by this proxy";
   }
