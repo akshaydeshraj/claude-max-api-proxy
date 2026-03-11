@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { convertRequest, validateRequest } from "../conversion/openai-to-sdk.js";
 import { completeNonStreaming, completeStreaming } from "../sdk/service.js";
 import { resolveConversationId } from "../sdk/sessions.js";
+import { logRequest } from "../db/queries.js";
 import { badRequest, serverError, rateLimited } from "../middleware/error-handler.js";
 import type { OpenAIChatRequest } from "../types/openai.js";
 
@@ -55,6 +56,24 @@ chatCompletions.post("/v1/chat/completions", async (c) => {
   if (!params.stream) {
     try {
       const result = await completeNonStreaming(params, c.req.raw.signal);
+
+      // Log to analytics (fire-and-forget)
+      try {
+        logRequest({
+          model: params.model,
+          stream: false,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          cacheCreationTokens: result.cacheCreationTokens,
+          cacheReadTokens: result.cacheReadTokens,
+          costUsd: result.costUsd,
+          durationMs: result.durationMs,
+          openaiModel: body.model,
+        });
+      } catch {
+        // Don't fail the request if logging fails
+      }
+
       const headers: Record<string, string> = {};
       if (conversationId) {
         headers["X-Conversation-Id"] = conversationId;
@@ -70,7 +89,26 @@ chatCompletions.post("/v1/chat/completions", async (c) => {
 
   // Streaming
   try {
-    const { stream } = completeStreaming(params, c.req.raw.signal);
+    const { stream, statsPromise } = completeStreaming(params, c.req.raw.signal);
+
+    // Log stats when streaming completes (fire-and-forget)
+    statsPromise
+      .then((stats) => {
+        logRequest({
+          model: params.model,
+          stream: true,
+          inputTokens: stats.inputTokens,
+          outputTokens: stats.outputTokens,
+          cacheCreationTokens: stats.cacheCreationTokens,
+          cacheReadTokens: stats.cacheReadTokens,
+          costUsd: stats.costUsd,
+          durationMs: stats.durationMs,
+          openaiModel: body.model,
+        });
+      })
+      .catch(() => {
+        // Don't fail on logging errors
+      });
 
     const headers: Record<string, string> = {
       "Content-Type": "text/event-stream",

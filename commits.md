@@ -114,3 +114,26 @@
 - Functions: 84.21%
 - Lines: 62.59%
 - auth middleware: 100%, cors: 100%, error-handler: 100%
+
+## Phase 6: Analytics
+
+### Commit 6 — SQLite analytics, stats API, request logging
+
+**Files created:**
+- `src/db/index.ts` — SQLite connection with WAL mode, migrations for requests table
+- `src/db/queries.ts` — logRequest, getStats, getStatsByModel, getHourlyStats, getRecentRequests
+- `src/db/queries.test.ts` — 9 tests with real SQLite (test DB), covering insert, aggregation, model breakdown, hourly buckets, recent ordering, limits
+- `src/routes/dashboard.ts` — stats API endpoints (/api/stats/summary, models, hourly, recent) with period filtering and JWT cookie auth
+
+**Files modified:**
+- `src/routes/chat-completions.ts` — added request logging (fire-and-forget) for both streaming and non-streaming
+- `src/routes/chat-completions.test.ts` — added db/queries mock
+- `src/index.ts` — wired dashboard routes
+
+**Tests:** 129 passing (14 test files)
+**Coverage:**
+- Statements: 61.85%
+- Branches: 66.54%
+- Functions: 79.12%
+- Lines: 60.81%
+- db/index.ts: 100%, db/queries.ts: 100%

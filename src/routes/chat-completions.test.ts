@@ -7,6 +7,11 @@ vi.mock("../sdk/service.js", () => ({
   completeStreaming: vi.fn(),
 }));
 
+// Mock the DB queries to avoid SQLite dependency in unit tests
+vi.mock("../db/queries.js", () => ({
+  logRequest: vi.fn(),
+}));
+
 import { chatCompletions } from "./chat-completions.js";
 import { completeNonStreaming, completeStreaming } from "../sdk/service.js";
 

@@ -4,6 +4,7 @@ import { chatCompletions } from "./routes/chat-completions.js";
 import { models } from "./routes/models.js";
 import { health } from "./routes/health.js";
 import { auth } from "./routes/auth.js";
+import { dashboard } from "./routes/dashboard.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { cors } from "./middleware/cors.js";
 import { config } from "./config.js";
@@ -22,6 +23,9 @@ app.route("/", auth);
 app.use("/v1/*", apiKeyAuth);
 app.route("/", models);
 app.route("/", chatCompletions);
+
+// Dashboard + stats API (JWT cookie auth handled inside)
+app.route("/", dashboard);
 
 // Start session cleanup
 startCleanupInterval();
