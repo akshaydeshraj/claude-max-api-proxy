@@ -1,9 +1,11 @@
 import type { OpenAIChatRequest, OpenAIMessage } from "../types/openai.js";
 import { mapModel, mapEffort } from "./model-map.js";
-import { config } from "../config.js";
+import { convertContentParts, type AnthropicContentBlock } from "./image-handler.js";
 
 export interface SDKQueryParams {
   prompt: string;
+  /** When images are present, content blocks for the SDK (text + image). */
+  promptContentBlocks?: AnthropicContentBlock[];
   model: string;
   systemPrompt?: string;
   effort?: "low" | "medium" | "high";
@@ -45,6 +47,28 @@ export function extractLastUserMessage(messages: OpenAIMessage[]): string {
   return "";
 }
 
+/**
+ * Extract the last user message's content parts (for image support).
+ * Returns undefined if the last user message is a plain string.
+ */
+export function extractLastUserContentBlocks(
+  messages: OpenAIMessage[],
+): AnthropicContentBlock[] | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "user") {
+      if (typeof msg.content === "string" || msg.content === null) {
+        return undefined;
+      }
+      // Only return blocks if there are images
+      const hasImages = msg.content.some((p) => p.type === "image_url");
+      if (!hasImages) return undefined;
+      return convertContentParts(msg.content);
+    }
+  }
+  return undefined;
+}
+
 export function hasImageContent(messages: OpenAIMessage[]): boolean {
   return messages.some((m) => {
     if (typeof m.content === "string" || m.content === null) return false;
@@ -54,14 +78,33 @@ export function hasImageContent(messages: OpenAIMessage[]): boolean {
 
 export function convertRequest(req: OpenAIChatRequest): SDKQueryParams {
   const model = mapModel(req.model);
-  const systemPrompt = extractSystemPrompt(req.messages);
+  let systemPrompt = extractSystemPrompt(req.messages);
   const prompt = extractLastUserMessage(req.messages);
+  const promptContentBlocks = extractLastUserContentBlocks(req.messages);
   const effort = mapEffort(req.reasoning_effort);
   const stream = req.stream ?? false;
   const includeUsageInStream = req.stream_options?.include_usage ?? false;
 
+  // Handle response_format by injecting into system prompt
+  if (req.response_format) {
+    const formatType = req.response_format.type;
+    if (formatType === "json_object") {
+      const jsonInstruction = "Respond with valid JSON only.";
+      systemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n${jsonInstruction}`
+        : jsonInstruction;
+    } else if (formatType === "json_schema" && req.response_format.json_schema) {
+      const schemaStr = JSON.stringify(req.response_format.json_schema);
+      const jsonInstruction = `Respond with valid JSON only. Your response must conform to this JSON schema: ${schemaStr}`;
+      systemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n${jsonInstruction}`
+        : jsonInstruction;
+    }
+  }
+
   return {
     prompt,
+    promptContentBlocks,
     model,
     systemPrompt,
     effort,

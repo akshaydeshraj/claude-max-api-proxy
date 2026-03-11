@@ -70,3 +70,24 @@
 - Lines: 57.56%
 - sessions.ts: 100% statements
 - Pure logic files (conversion/, model-map, semaphore): 100%
+
+## Phase 4: Image Support + response_format
+
+### Commit 4 — Image conversion and response_format handling
+
+**Files created:**
+- `src/conversion/image-handler.ts` — parse data URIs, convert OpenAI image_url to Anthropic base64/URL image blocks
+- `src/conversion/image-handler.test.ts` — 13 tests for data URI parsing, base64/URL conversion, mixed content
+
+**Files modified:**
+- `src/conversion/openai-to-sdk.ts` — added `extractLastUserContentBlocks()` for image content, `response_format` injection (json_object + json_schema → system prompt), `promptContentBlocks` in SDKQueryParams
+- `src/conversion/openai-to-sdk.test.ts` — added 10 tests for content blocks extraction, image support, response_format handling
+
+**Tests:** 104 passing (10 test files)
+**Coverage:**
+- Statements: 63.23%
+- Branches: 69.52%
+- Functions: 80.59%
+- Lines: 61.92%
+- All conversion files: 100%
+- image-handler.ts: 100%

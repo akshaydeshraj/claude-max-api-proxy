@@ -3,6 +3,7 @@ import {
   extractTextFromContent,
   extractSystemPrompt,
   extractLastUserMessage,
+  extractLastUserContentBlocks,
   hasImageContent,
   convertRequest,
   validateRequest,
@@ -109,6 +110,53 @@ describe("hasImageContent", () => {
   });
 });
 
+describe("extractLastUserContentBlocks", () => {
+  it("returns undefined for string content", () => {
+    const messages: OpenAIMessage[] = [{ role: "user", content: "Hello" }];
+    expect(extractLastUserContentBlocks(messages)).toBeUndefined();
+  });
+
+  it("returns undefined for text-only parts", () => {
+    const messages: OpenAIMessage[] = [
+      { role: "user", content: [{ type: "text", text: "Hello" }] },
+    ];
+    expect(extractLastUserContentBlocks(messages)).toBeUndefined();
+  });
+
+  it("returns content blocks when images present", () => {
+    const messages: OpenAIMessage[] = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What's this?" },
+          {
+            type: "image_url",
+            image_url: { url: "https://example.com/cat.png" },
+          },
+        ],
+      },
+    ];
+
+    const blocks = extractLastUserContentBlocks(messages);
+    expect(blocks).toHaveLength(2);
+    expect(blocks![0]).toEqual({ type: "text", text: "What's this?" });
+    expect(blocks![1]).toEqual({
+      type: "image",
+      source: { type: "url", url: "https://example.com/cat.png" },
+    });
+  });
+
+  it("returns undefined when no user messages", () => {
+    const messages: OpenAIMessage[] = [{ role: "system", content: "Hi" }];
+    expect(extractLastUserContentBlocks(messages)).toBeUndefined();
+  });
+
+  it("returns undefined for null content", () => {
+    const messages: OpenAIMessage[] = [{ role: "user", content: null }];
+    expect(extractLastUserContentBlocks(messages)).toBeUndefined();
+  });
+});
+
 describe("convertRequest", () => {
   it("converts a basic request", () => {
     const req: OpenAIChatRequest = {
@@ -149,6 +197,76 @@ describe("convertRequest", () => {
 
     const result = convertRequest(req);
     expect(result.effort).toBe("low");
+  });
+
+  it("includes promptContentBlocks when images present", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Describe" },
+            { type: "image_url", image_url: { url: "https://example.com/img.jpg" } },
+          ],
+        },
+      ],
+    };
+
+    const result = convertRequest(req);
+    expect(result.promptContentBlocks).toHaveLength(2);
+    expect(result.prompt).toBe("Describe");
+  });
+
+  it("injects json_object response_format into system prompt", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [{ role: "user", content: "Hi" }],
+      response_format: { type: "json_object" },
+    };
+
+    const result = convertRequest(req);
+    expect(result.systemPrompt).toBe("Respond with valid JSON only.");
+  });
+
+  it("appends json_object to existing system prompt", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [
+        { role: "system", content: "Be helpful" },
+        { role: "user", content: "Hi" },
+      ],
+      response_format: { type: "json_object" },
+    };
+
+    const result = convertRequest(req);
+    expect(result.systemPrompt).toBe(
+      "Be helpful\n\nRespond with valid JSON only.",
+    );
+  });
+
+  it("injects json_schema into system prompt", () => {
+    const schema = { type: "object", properties: { name: { type: "string" } } };
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [{ role: "user", content: "Hi" }],
+      response_format: { type: "json_schema", json_schema: schema },
+    };
+
+    const result = convertRequest(req);
+    expect(result.systemPrompt).toContain("Respond with valid JSON only.");
+    expect(result.systemPrompt).toContain(JSON.stringify(schema));
+  });
+
+  it("ignores text response_format", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [{ role: "user", content: "Hi" }],
+      response_format: { type: "text" },
+    };
+
+    const result = convertRequest(req);
+    expect(result.systemPrompt).toBeUndefined();
   });
 });
 
