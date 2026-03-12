@@ -92,14 +92,14 @@ export function getStatsByModel(sinceMs?: number): ModelBreakdown[] {
   return db
     .prepare(
       `SELECT
-        model,
+        COALESCE(openai_model, model) as model,
         COUNT(*) as requestCount,
         COALESCE(SUM(input_tokens), 0) as totalInputTokens,
         COALESCE(SUM(output_tokens), 0) as totalOutputTokens,
         COALESCE(SUM(cost_usd), 0) as totalCostUsd
       FROM requests
       WHERE created_at >= ? AND status = 'success'
-      GROUP BY model
+      GROUP BY COALESCE(openai_model, model)
       ORDER BY requestCount DESC`,
     )
     .all(cutoff) as ModelBreakdown[];
@@ -135,7 +135,7 @@ export function getRecentRequests(limit = 50): Array<Record<string, unknown>> {
   const db = getDb();
   return db
     .prepare(
-      `SELECT * FROM requests ORDER BY created_at DESC LIMIT ?`,
+      `SELECT *, COALESCE(openai_model, model) as display_model FROM requests ORDER BY created_at DESC LIMIT ?`,
     )
     .all(limit) as Array<Record<string, unknown>>;
 }

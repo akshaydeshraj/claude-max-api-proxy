@@ -3,159 +3,340 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Max Proxy — Dashboard</title>
+  <title>Claude Max Proxy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f1117;
-      color: #e4e4e7;
-      min-height: 100vh;
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #fafafa;
+      color: #18181b;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
     }
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    .mono {
+      font-family: 'Geist Mono', ui-monospace, monospace;
+    }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 24px 64px;
+    }
+
+    /* ── Header ── */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 32px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #27272a;
+      margin-bottom: 48px;
     }
-    h1 { font-size: 24px; font-weight: 600; color: #fafafa; }
-    h2 { font-size: 16px; font-weight: 500; color: #a1a1aa; margin-bottom: 12px; }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #18181b;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .period-select {
-      background: #1c1c22;
-      color: #e4e4e7;
-      border: 1px solid #3f3f46;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 14px;
+      appearance: none;
+      background: #fff;
+      color: #3f3f46;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 7px 32px 7px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
+      transition: border-color 0.15s;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
     }
-    .stats-grid {
+
+    .period-select:hover { border-color: #a1a1aa; }
+    .period-select:focus { outline: none; border-color: #18181b; }
+
+    .logout {
+      font-size: 13px;
+      font-weight: 500;
+      color: #71717a;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .logout:hover { color: #18181b; }
+
+    /* ── Metrics row ── */
+    .metrics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-    .stat-card {
-      background: #1c1c22;
-      border: 1px solid #27272a;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      background: #e4e4e7;
+      border: 1px solid #e4e4e7;
       border-radius: 12px;
-      padding: 20px;
+      overflow: hidden;
+      margin-bottom: 40px;
     }
-    .stat-label { font-size: 13px; color: #71717a; margin-bottom: 4px; }
-    .stat-value { font-size: 28px; font-weight: 700; color: #fafafa; }
-    .stat-sub { font-size: 12px; color: #52525b; margin-top: 2px; }
-    .chart-container {
-      background: #1c1c22;
-      border: 1px solid #27272a;
+
+    .metric {
+      background: #fff;
+      padding: 24px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-family: 'Geist Mono', monospace;
+      font-size: 28px;
+      font-weight: 500;
+      color: #18181b;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-top: 6px;
+    }
+
+    /* ── Section labels ── */
+    .section-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Chart ── */
+    .chart-wrap {
+      background: #fff;
+      border: 1px solid #e4e4e7;
       border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 24px;
+      padding: 24px;
+      margin-bottom: 40px;
     }
-    .chart-container canvas { max-height: 300px; }
-    .models-grid {
+
+    .chart-wrap canvas { max-height: 220px; }
+
+    /* ── Models ── */
+    .models-section { margin-bottom: 40px; }
+
+    .models-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
       gap: 16px;
-      margin-bottom: 32px;
     }
-    .model-card {
-      background: #1c1c22;
-      border: 1px solid #27272a;
+
+    .model-item {
+      background: #fff;
+      border: 1px solid #e4e4e7;
       border-radius: 12px;
-      padding: 16px;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px;
     }
-    .model-name { font-size: 15px; font-weight: 600; color: #fafafa; margin-bottom: 8px; }
-    .model-stat { font-size: 13px; color: #a1a1aa; margin-bottom: 4px; }
-    .model-stat span { color: #fafafa; font-weight: 500; }
+
+    .model-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #18181b;
+      grid-column: 1 / -1;
+      margin-bottom: 8px;
+    }
+
+    .model-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 24px;
+      grid-column: 1 / -1;
+    }
+
+    .model-stat-item {
+      font-size: 12px;
+      color: #71717a;
+    }
+
+    .model-stat-item span {
+      font-family: 'Geist Mono', monospace;
+      font-weight: 500;
+      color: #18181b;
+      display: block;
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-scroll { overflow-x: auto; }
+
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
     }
-    th { text-align: left; color: #71717a; padding: 8px 12px; border-bottom: 1px solid #27272a; }
-    td { padding: 8px 12px; border-bottom: 1px solid #1c1c22; }
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
+
+    th {
+      text-align: left;
       font-size: 11px;
       font-weight: 500;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e4e4e7;
+      background: #fafafa;
+      white-space: nowrap;
     }
-    .badge-success { background: #052e16; color: #4ade80; }
-    .badge-error { background: #450a0a; color: #f87171; }
-    .badge-stream { background: #172554; color: #60a5fa; }
-    a { color: #60a5fa; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .loading { color: #52525b; text-align: center; padding: 40px; }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #f4f4f5;
+      white-space: nowrap;
+      color: #3f3f46;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td.num {
+      font-family: 'Geist Mono', monospace;
+      font-size: 12px;
+      color: #18181b;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .tag-stream { background: #eff6ff; color: #2563eb; }
+    .tag-ok { background: #f0fdf4; color: #16a34a; }
+    .tag-err { background: #fef2f2; color: #dc2626; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #a1a1aa;
+      font-size: 14px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .wrap { padding: 24px 16px 48px; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .metric-value { font-size: 22px; }
+      header { flex-direction: column; gap: 16px; align-items: flex-start; }
+    }
+
+    @media (max-width: 480px) {
+      .metrics { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="container" x-data="dashboard()" x-init="init()">
+  <div class="wrap" x-data="dashboard()" x-init="init()">
     <header>
       <h1>Claude Max Proxy</h1>
-      <div>
+      <div class="controls">
         <select class="period-select" x-model="period" @change="fetchAll()">
           <option value="1h">Last hour</option>
           <option value="24h" selected>Last 24h</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
+          <option value="7d">7 days</option>
+          <option value="30d">30 days</option>
           <option value="all">All time</option>
         </select>
-        <a href="/auth/logout" style="margin-left:16px;font-size:13px;">Logout</a>
+        <a href="/auth/logout" class="logout">Log out</a>
       </div>
     </header>
 
-    <!-- Summary Stats -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Requests</div>
-        <div class="stat-value" x-text="fmt(stats.totalRequests)">—</div>
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Requests</div>
+        <div class="metric-value" x-text="fmt(stats.totalRequests)">-</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Input Tokens</div>
-        <div class="stat-value" x-text="fmt(stats.totalInputTokens)">—</div>
-        <div class="stat-sub" x-text="'Cache read: ' + fmt(stats.totalCacheReadTokens)"></div>
+      <div class="metric">
+        <div class="metric-label">Input tokens</div>
+        <div class="metric-value" x-text="fmt(stats.totalInputTokens + stats.totalCacheReadTokens)">-</div>
+        <div class="metric-sub mono" x-text="fmt(stats.totalInputTokens) + ' fresh + ' + fmt(stats.totalCacheReadTokens) + ' cached'"></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Output Tokens</div>
-        <div class="stat-value" x-text="fmt(stats.totalOutputTokens)">—</div>
+      <div class="metric">
+        <div class="metric-label">Cache hit rate</div>
+        <div class="metric-value" x-text="(stats.totalInputTokens + stats.totalCacheReadTokens) > 0 ? Math.round(stats.totalCacheReadTokens / (stats.totalInputTokens + stats.totalCacheReadTokens) * 100) + '%' : '-'">-</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Est. Cost</div>
-        <div class="stat-value" x-text="'$' + stats.totalCostUsd.toFixed(4)">—</div>
-        <div class="stat-sub" x-text="'Avg latency: ' + Math.round(stats.avgDurationMs) + 'ms'"></div>
+      <div class="metric">
+        <div class="metric-label">Output tokens</div>
+        <div class="metric-value" x-text="fmt(stats.totalOutputTokens)">-</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Est. cost</div>
+        <div class="metric-value" x-text="'$' + stats.totalCostUsd.toFixed(4)">-</div>
+        <div class="metric-sub mono" x-text="Math.round(stats.avgDurationMs) + 'ms avg'"></div>
       </div>
     </div>
 
-    <!-- Hourly Chart -->
-    <div class="chart-container">
-      <h2>Requests Over Time</h2>
+    <!-- Chart -->
+    <div class="section-label">Activity</div>
+    <div class="chart-wrap">
       <canvas id="hourlyChart"></canvas>
     </div>
 
-    <!-- Model Breakdown -->
-    <h2>By Model</h2>
-    <div class="models-grid">
-      <template x-for="m in models" :key="m.model">
-        <div class="model-card">
-          <div class="model-name" x-text="m.model"></div>
-          <div class="model-stat">Requests: <span x-text="fmt(m.requestCount)"></span></div>
-          <div class="model-stat">Input: <span x-text="fmt(m.totalInputTokens)"></span></div>
-          <div class="model-stat">Output: <span x-text="fmt(m.totalOutputTokens)"></span></div>
-          <div class="model-stat">Cost: <span x-text="'$' + m.totalCostUsd.toFixed(4)"></span></div>
-        </div>
-      </template>
+    <!-- Models -->
+    <div class="models-section" x-show="models.length > 0">
+      <div class="section-label">Models</div>
+      <div class="models-row">
+        <template x-for="m in models" :key="m.model">
+          <div class="model-item">
+            <div class="model-name" x-text="m.model"></div>
+            <div class="model-stats">
+              <div class="model-stat-item">Requests <span x-text="fmt(m.requestCount)"></span></div>
+              <div class="model-stat-item">Input <span x-text="fmt(m.totalInputTokens)"></span></div>
+              <div class="model-stat-item">Output <span x-text="fmt(m.totalOutputTokens)"></span></div>
+              <div class="model-stat-item">Cost <span x-text="'$' + m.totalCostUsd.toFixed(4)"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <!-- Recent Requests -->
-    <div class="chart-container">
-      <h2>Recent Requests</h2>
-      <div style="overflow-x:auto;">
+    <!-- Recent -->
+    <div class="section-label">Recent requests</div>
+    <div class="table-wrap">
+      <div x-show="recent.length === 0" class="empty-state">No requests yet</div>
+      <div x-show="recent.length > 0" class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -164,7 +345,7 @@
               <th>Type</th>
               <th>Input</th>
               <th>Output</th>
-              <th>Cache</th>
+              <th>Cached</th>
               <th>Cost</th>
               <th>Latency</th>
               <th>Status</th>
@@ -173,17 +354,17 @@
           <tbody>
             <template x-for="r in recent" :key="r.id">
               <tr>
-                <td x-text="new Date(r.created_at).toLocaleTimeString()"></td>
-                <td x-text="r.model"></td>
-                <td><span class="badge badge-stream" x-show="r.stream">stream</span></td>
-                <td x-text="fmt(r.input_tokens)"></td>
-                <td x-text="fmt(r.output_tokens)"></td>
-                <td x-text="fmt(r.cache_read_tokens)"></td>
-                <td x-text="'$' + r.cost_usd.toFixed(4)"></td>
-                <td x-text="r.duration_ms + 'ms'"></td>
+                <td class="num" x-text="new Date(r.created_at).toLocaleTimeString()"></td>
+                <td x-text="r.display_model || r.model"></td>
+                <td><span class="tag tag-stream" x-show="r.stream">stream</span></td>
+                <td class="num" x-text="fmt(r.input_tokens)"></td>
+                <td class="num" x-text="fmt(r.output_tokens)"></td>
+                <td class="num" x-text="fmt(r.cache_read_tokens)"></td>
+                <td class="num" x-text="'$' + r.cost_usd.toFixed(4)"></td>
+                <td class="num" x-text="r.duration_ms.toLocaleString() + 'ms'"></td>
                 <td>
-                  <span class="badge badge-success" x-show="r.status==='success'">ok</span>
-                  <span class="badge badge-error" x-show="r.status==='error'">err</span>
+                  <span class="tag tag-ok" x-show="r.status==='success'">ok</span>
+                  <span class="tag tag-err" x-show="r.status==='error'">err</span>
                 </td>
               </tr>
             </template>
@@ -197,7 +378,11 @@
     function dashboard() {
       return {
         period: '24h',
-        stats: { totalRequests: 0, totalInputTokens: 0, totalOutputTokens: 0, totalCacheCreationTokens: 0, totalCacheReadTokens: 0, totalCostUsd: 0, avgDurationMs: 0 },
+        stats: {
+          totalRequests: 0, totalInputTokens: 0, totalOutputTokens: 0,
+          totalCacheCreationTokens: 0, totalCacheReadTokens: 0,
+          totalCostUsd: 0, avgDurationMs: 0
+        },
         models: [],
         hourly: [],
         recent: [],
@@ -239,8 +424,9 @@
               datasets: [{
                 label: 'Requests',
                 data: this.hourly.map(h => h.requestCount),
-                backgroundColor: '#3b82f6',
-                borderRadius: 4,
+                backgroundColor: '#18181b',
+                borderRadius: 3,
+                maxBarThickness: 32,
               }]
             },
             options: {
@@ -248,8 +434,24 @@
               maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
-                x: { grid: { color: '#27272a' }, ticks: { color: '#71717a' } },
-                y: { grid: { color: '#27272a' }, ticks: { color: '#71717a' }, beginAtZero: true }
+                x: {
+                  border: { display: false },
+                  grid: { display: false },
+                  ticks: {
+                    color: '#a1a1aa',
+                    font: { family: "'Geist Mono', monospace", size: 11 }
+                  }
+                },
+                y: {
+                  border: { display: false },
+                  grid: { color: '#f4f4f5' },
+                  ticks: {
+                    color: '#a1a1aa',
+                    font: { family: "'Geist Mono', monospace", size: 11 },
+                    stepSize: 1,
+                  },
+                  beginAtZero: true,
+                }
               }
             }
           });
