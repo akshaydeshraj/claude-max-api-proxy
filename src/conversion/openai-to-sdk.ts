@@ -79,6 +79,36 @@ export function hasImageContent(messages: OpenAIMessage[]): boolean {
   });
 }
 
+/**
+ * Build conversation history from preceding messages (all except the last user message).
+ * Returns a formatted string to prepend to the system prompt so the model has context.
+ */
+function buildConversationContext(messages: OpenAIMessage[]): string | undefined {
+  // Find the index of the last user message
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  // Collect non-system messages before the last user message
+  const contextMessages = messages
+    .slice(0, lastUserIdx)
+    .filter((m) => m.role !== "system" && m.role !== "developer");
+
+  if (contextMessages.length === 0) return undefined;
+
+  const lines = contextMessages.map((m) => {
+    const text = extractTextFromContent(m.content);
+    const role = m.role === "assistant" ? "Assistant" : "User";
+    return `${role}: ${text}`;
+  });
+
+  return `<conversation_history>\n${lines.join("\n")}\n</conversation_history>\n\nContinue the conversation based on the history above.`;
+}
+
 export function convertRequest(req: OpenAIChatRequest): SDKQueryParams {
   const model = req.model;
   let systemPrompt = extractSystemPrompt(req.messages);
@@ -87,6 +117,14 @@ export function convertRequest(req: OpenAIChatRequest): SDKQueryParams {
   const effort = mapEffort(req.reasoning_effort);
   const stream = req.stream ?? false;
   const includeUsageInStream = req.stream_options?.include_usage ?? false;
+
+  // Include conversation history from preceding messages
+  const conversationContext = buildConversationContext(req.messages);
+  if (conversationContext) {
+    systemPrompt = systemPrompt
+      ? `${systemPrompt}\n\n${conversationContext}`
+      : conversationContext;
+  }
 
   // Handle response_format by injecting into system prompt
   if (req.response_format) {
