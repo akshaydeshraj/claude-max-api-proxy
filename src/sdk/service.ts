@@ -11,7 +11,7 @@ import {
   mapResultSubtype,
 } from "../conversion/sdk-to-openai.js";
 import { Semaphore } from "./semaphore.js";
-import { getSession, setSession, updateSessionUsage } from "./sessions.js";
+import { getSession, setSession, updateSessionUsage, deleteSession } from "./sessions.js";
 import { config } from "../config.js";
 import type { OpenAIChatResponse, OpenAIToolCall, OpenAIToolCallDelta } from "../types/openai.js";
 import { createToolMcpServer, type ToolCallCapture } from "../conversion/tool-handler.js";
@@ -193,57 +193,78 @@ export async function completeNonStreaming(
 
   try {
     const existingSessionId = resolveSDKSessionId(params.conversationId);
-    const options = buildSDKOptions(
-      params,
-      abortController,
-      existingSessionId,
-      hasTools ? { capture: toolCapture } : undefined,
-    );
 
-    let content = "";
-    let finishReason = "stop";
-    let sdkSessionId: string | undefined;
-    let stats = { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+    const runQuery = async (sessionId?: string) => {
+      const options = buildSDKOptions(
+        params,
+        abortController,
+        sessionId,
+        hasTools ? { capture: toolCapture } : undefined,
+      );
 
-    const q = query({
-      prompt: buildPromptArg(params),
-      options: options as never,
-    });
+      let content = "";
+      let finishReason = "stop";
+      let sdkSessionId: string | undefined;
+      let stats = { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
 
-    for await (const message of q) {
-      if (message.type === "assistant" && message.message?.content) {
-        for (const block of message.message.content) {
-          if ("text" in block) {
-            content += block.text;
+      const q = query({
+        prompt: buildPromptArg(params),
+        options: options as never,
+      });
+
+      for await (const message of q) {
+        if (message.type === "assistant" && message.message?.content) {
+          for (const block of message.message.content) {
+            if ("text" in block) {
+              content += block.text;
+            }
           }
+        } else if (message.type === "result") {
+          finishReason = message.subtype
+            ? mapResultSubtype(message.subtype)
+            : "stop";
+          stats = extractUsageFromResult(message);
+          sdkSessionId = (message as Record<string, unknown>).session_id as string | undefined;
         }
-      } else if (message.type === "result") {
-        finishReason = message.subtype
-          ? mapResultSubtype(message.subtype)
-          : "stop";
-        stats = extractUsageFromResult(message);
-        sdkSessionId = (message as Record<string, unknown>).session_id as string | undefined;
+      }
+
+      return { content, finishReason, sdkSessionId, stats };
+    };
+
+    let result;
+    try {
+      result = await runQuery(existingSessionId);
+    } catch (err) {
+      // If resuming a stale session failed, retry without resume
+      if (existingSessionId && params.conversationId) {
+        console.error(`[proxy] Session resume failed for ${params.conversationId}, retrying without resume:`, err instanceof Error ? err.message : err);
+        deleteSession(params.conversationId);
+        toolCapture.toolCalls = [];
+        toolCapture.textContent = "";
+        result = await runQuery(undefined);
+      } else {
+        throw err;
       }
     }
 
     // Store session for multi-turn
-    storeSession(params.conversationId, sdkSessionId, params.model, params.messageCount);
+    storeSession(params.conversationId, result.sdkSessionId, params.model, params.messageCount);
 
     const durationMs = Date.now() - startTime;
-    const usage = buildUsage(stats.inputTokens, stats.outputTokens);
+    const usage = buildUsage(result.stats.inputTokens, result.stats.outputTokens);
     const response = buildChatResponse({
-      content,
+      content: result.content,
       model: params.model,
-      finishReason,
+      finishReason: result.finishReason,
       usage,
       toolCalls: toolCapture.toolCalls.length > 0 ? toolCapture.toolCalls : undefined,
     });
 
     return {
       response,
-      ...stats,
+      ...result.stats,
       durationMs,
-      sdkSessionId,
+      sdkSessionId: result.sdkSessionId,
     };
   } finally {
     clearTimeout(timeout);
@@ -287,17 +308,46 @@ export function completeStreaming(
 
       try {
         const existingSessionId = resolveSDKSessionId(params.conversationId);
-        const options = buildSDKOptions(
-          params,
-          abortController,
-          existingSessionId,
-          hasTools ? { capture: toolCapture } : undefined,
-        );
 
-        const q = query({
-          prompt: buildPromptArg(params),
-          options: options as never,
-        });
+        const runStreamQuery = (sessionId?: string) => {
+          const options = buildSDKOptions(
+            params,
+            abortController,
+            sessionId,
+            hasTools ? { capture: toolCapture } : undefined,
+          );
+          return query({
+            prompt: buildPromptArg(params),
+            options: options as never,
+          });
+        };
+
+        let q: ReturnType<typeof query>;
+        try {
+          q = runStreamQuery(existingSessionId);
+          // Eagerly pull first message to detect stale session errors early
+          const iter = q[Symbol.asyncIterator]();
+          const first = await iter.next();
+
+          // Re-wrap into an async iterable that yields the first message then the rest
+          q = (async function* () {
+            if (!first.done) yield first.value;
+            for await (const msg of { [Symbol.asyncIterator]: () => iter }) yield msg;
+          })() as ReturnType<typeof query>;
+        } catch (resumeErr) {
+          if (existingSessionId && params.conversationId) {
+            console.error(`[proxy] Stream session resume failed for ${params.conversationId}, retrying without resume:`, resumeErr instanceof Error ? resumeErr.message : resumeErr);
+            deleteSession(params.conversationId);
+            toolCapture.toolCalls = [];
+            toolCapture.textContent = "";
+            streamingToolCalls.clear();
+            nextToolCallIndex = 0;
+            toolCallDetected = false;
+            q = runStreamQuery(undefined);
+          } else {
+            throw resumeErr;
+          }
+        }
 
         for await (const message of q) {
             if (message.type === "stream_event") {
