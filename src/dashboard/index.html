@@ -295,7 +295,7 @@
       </div>
       <div class="metric">
         <div class="metric-label">Cache hit rate</div>
-        <div class="metric-value" x-text="(stats.totalInputTokens + stats.totalCacheReadTokens) > 0 ? Math.round(stats.totalCacheReadTokens / (stats.totalInputTokens + stats.totalCacheReadTokens) * 100) + '%' : '-'">-</div>
+        <div class="metric-value" x-text="(stats.totalInputTokens + stats.totalCacheReadTokens) > 0 ? (stats.totalCacheReadTokens / (stats.totalInputTokens + stats.totalCacheReadTokens) * 100).toFixed(1) + '%' : '-'">-</div>
       </div>
       <div class="metric">
         <div class="metric-label">Output tokens</div>
