@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -131,17 +130,7 @@
     }
 
     /* ── Chart ── */
-    .chart-wrap {
-      background: #fff;
-      border: 1px solid #e4e4e7;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 40px;
-    }
-
-    .chart-wrap canvas { max-height: 220px; }
-
-    /* ── Models ── */
+/* ── Models ── */
     .models-section { margin-bottom: 40px; }
 
     .models-row {
@@ -308,11 +297,6 @@
       </div>
     </div>
 
-    <!-- Chart -->
-    <div class="section-label">Activity</div>
-    <div class="chart-wrap">
-      <canvas id="hourlyChart"></canvas>
-    </div>
 
     <!-- Models -->
     <div class="models-section" x-show="models.length > 0">
@@ -384,9 +368,7 @@
           totalCostUsd: 0, avgDurationMs: 0
         },
         models: [],
-        hourly: [],
         recent: [],
-        chart: null,
 
         async init() {
           await this.fetchAll();
@@ -395,67 +377,20 @@
 
         async fetchAll() {
           const p = `period=${this.period}`;
-          const [s, m, h, r] = await Promise.all([
+          const [s, m, r] = await Promise.all([
             fetch(`/api/stats/summary?${p}`).then(r => r.json()),
             fetch(`/api/stats/models?${p}`).then(r => r.json()),
-            fetch(`/api/stats/hourly?${p}`).then(r => r.json()),
             fetch('/api/stats/recent?limit=50').then(r => r.json()),
           ]);
           this.stats = s;
           this.models = m;
-          this.hourly = h;
           this.recent = r;
-          this.renderChart();
         },
 
         fmt(n) {
           if (n == null) return '0';
           return n.toLocaleString();
         },
-
-        renderChart() {
-          const ctx = document.getElementById('hourlyChart');
-          if (this.chart) this.chart.destroy();
-
-          this.chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: this.hourly.map(h => h.hour.split(' ')[1] || h.hour),
-              datasets: [{
-                label: 'Requests',
-                data: this.hourly.map(h => h.requestCount),
-                backgroundColor: '#18181b',
-                borderRadius: 3,
-                maxBarThickness: 32,
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: {
-                  border: { display: false },
-                  grid: { display: false },
-                  ticks: {
-                    color: '#a1a1aa',
-                    font: { family: "'Geist Mono', monospace", size: 11 }
-                  }
-                },
-                y: {
-                  border: { display: false },
-                  grid: { color: '#f4f4f5' },
-                  ticks: {
-                    color: '#a1a1aa',
-                    font: { family: "'Geist Mono', monospace", size: 11 },
-                    stepSize: 1,
-                  },
-                  beginAtZero: true,
-                }
-              }
-            }
-          });
-        }
       };
     }
   </script>
