@@ -37,13 +37,21 @@ async function dashboardAuth(
 }
 
 // Apply auth to all dashboard routes
-dashboard.use("/dashboard*", dashboardAuth);
 dashboard.use("/api/stats*", dashboardAuth);
 
 /**
- * GET /dashboard — Serve the dashboard SPA.
+ * GET / — Serve the dashboard SPA (redirects to login if not authenticated).
  */
-dashboard.get("/dashboard", (c) => {
+dashboard.get("/", async (c) => {
+  // Inline auth check — redirect to login if not authenticated
+  if (config.googleClientId) {
+    const cookie = c.req.header("Cookie");
+    const match = cookie?.match(/session=([^;]+)/);
+    if (!match) return c.redirect("/auth/google");
+    const user = await verifyJWT(match[1]);
+    if (!user) return c.redirect("/auth/google");
+  }
+
   try {
     const html = readFileSync(join(__dirname, "../dashboard/index.html"), "utf-8");
     return c.html(html);

@@ -111,10 +111,10 @@ auth.get("/auth/callback", async (c) => {
 
     c.header(
       "Set-Cookie",
-      `session=${jwt}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`,
+      `session=${jwt}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax${config.publicUrl.startsWith("https") ? "; Secure" : ""}`,
     );
 
-    return c.redirect("/dashboard");
+    return c.redirect("/");
   } catch {
     return c.json({ error: "Authentication failed" }, 500);
   }
