@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/dashboard dist/",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run src/integration/ --testTimeout=120000"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +19,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.72",
     "@hono/node-server": "^1.19.11",
     "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.3.1",
     "hono": "^4.12.7",
     "jose": "^6.2.1",
     "uuid": "^13.0.0"

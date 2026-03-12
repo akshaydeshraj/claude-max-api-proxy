@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { chatCompletions } from "./routes/chat-completions.js";
@@ -24,8 +25,8 @@ app.use("/v1/*", apiKeyAuth);
 app.route("/", models);
 app.route("/", chatCompletions);
 
-// Dashboard + stats API (JWT cookie auth handled inside)
-app.route("/", dashboard);
+// Dashboard at root (JWT cookie auth handled inside)
+app.route("", dashboard);
 
 // Start session cleanup
 startCleanupInterval();
