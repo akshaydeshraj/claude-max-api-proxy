@@ -20,9 +20,14 @@ RUN npm ci --omit=dev
 # Copy built files from builder
 COPY --from=builder /app/dist/ ./dist/
 
+# Create non-root user (claude CLI refuses --dangerously-skip-permissions as root)
+RUN useradd -m -s /bin/bash claude && \
+    chown -R claude:claude /app
+USER claude
+
 # Persistent volumes for SQLite and Claude CLI credentials
 VOLUME /data
-VOLUME /root/.claude
+VOLUME /home/claude/.claude
 ENV DB_PATH=/data/analytics.db
 
 EXPOSE 3456
