@@ -20,8 +20,9 @@ RUN npm ci --omit=dev
 # Copy built files from builder
 COPY --from=builder /app/dist/ ./dist/
 
-# Data volume for SQLite
+# Persistent volumes for SQLite and Claude CLI credentials
 VOLUME /data
+VOLUME /root/.claude
 ENV DB_PATH=/data/analytics.db
 
 EXPOSE 3456
