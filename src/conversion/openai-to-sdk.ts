@@ -143,17 +143,28 @@ export function convertRequest(req: OpenAIChatRequest): SDKQueryParams {
     }
   }
 
-  // Handle tool result messages by injecting context into system prompt
-  const tools = req.tools && req.tools.length > 0 ? req.tools : undefined;
-  if (tools && hasToolResultMessages(req.messages)) {
-    const toolContext = buildToolResultContext(tools, req.messages);
+  // Handle conversations with tool results: always inject tool history into
+  // system prompt so the model has context. If the last message is a tool
+  // result (not a user follow-up), also clear tools so the SDK generates
+  // a text response without creating an MCP server.
+  let tools = req.tools && req.tools.length > 0 ? req.tools : undefined;
+  const hasToolResults = hasToolResultMessages(req.messages);
+  const lastMessage = req.messages[req.messages.length - 1];
+  const isToolResultFollowUp = lastMessage?.role === "tool";
+  if (hasToolResults) {
+    const toolContext = buildToolResultContext(req.tools ?? [], req.messages);
     systemPrompt = systemPrompt
       ? `${systemPrompt}\n\n${toolContext}`
       : toolContext;
   }
+  if (isToolResultFollowUp) {
+    tools = undefined;
+  }
 
   return {
-    prompt,
+    prompt: isToolResultFollowUp
+      ? "Respond to the user based on the tool results in the conversation above."
+      : prompt,
     promptContentBlocks,
     model,
     systemPrompt,

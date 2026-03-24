@@ -379,7 +379,7 @@ describe("convertRequest with tools", () => {
     expect(result.tools).toBeUndefined();
   });
 
-  it("injects tool result context into system prompt", () => {
+  it("keeps tools when user follows up after tool results", () => {
     const req: OpenAIChatRequest = {
       model: "sonnet",
       messages: [
@@ -403,7 +403,83 @@ describe("convertRequest with tools", () => {
     };
 
     const result = convertRequest(req);
+    // Tools kept — user wants another tool call cycle
+    expect(result.tools).toHaveLength(1);
+    // Tool history injected into system prompt for context
     expect(result.systemPrompt).toContain("get_weather");
     expect(result.systemPrompt).toContain("72°F");
+    // Prompt is the follow-up, not prefixed with "Based on tool results"
+    expect(result.prompt).toBe("Thanks, and in NYC?");
+  });
+
+  it("clears tools when tool result messages are present", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [
+        { role: "user", content: "What's the weather in London?" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            { id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"location":"London"}' } },
+          ],
+        },
+        { role: "tool", content: "15°C and rainy", tool_call_id: "call_1" },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: { name: "get_weather", description: "Get weather", parameters: { type: "object", properties: { location: { type: "string" } } } },
+        },
+      ],
+    };
+
+    const result = convertRequest(req);
+    expect(result.tools).toBeUndefined();
+    expect(result.systemPrompt).toContain("15°C and rainy");
+    expect(result.systemPrompt).toContain("get_weather");
+  });
+
+  it("injects tool context even when tools array is omitted", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [
+        { role: "user", content: "What's the weather?" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            { id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"location":"SF"}' } },
+          ],
+        },
+        { role: "tool", content: "72°F sunny", tool_call_id: "call_1" },
+      ],
+    };
+
+    const result = convertRequest(req);
+    expect(result.tools).toBeUndefined();
+    expect(result.systemPrompt).toContain("72°F sunny");
+  });
+
+  it("adapts prompt for tool result follow-up", () => {
+    const req: OpenAIChatRequest = {
+      model: "sonnet",
+      messages: [
+        { role: "user", content: "What's the weather in Paris?" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            { id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"location":"Paris"}' } },
+          ],
+        },
+        { role: "tool", content: "20°C clear", tool_call_id: "call_1" },
+      ],
+    };
+
+    const result = convertRequest(req);
+    expect(result.prompt).toContain("tool results");
+    // Should NOT re-inject the original question
+    expect(result.prompt).not.toContain("What's the weather in Paris?");
   });
 });

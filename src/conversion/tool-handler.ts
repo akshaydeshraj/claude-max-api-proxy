@@ -128,15 +128,17 @@ export function buildToolResultContext(
 ): string {
   const parts: string[] = [];
 
-  // Describe available tools
-  parts.push("You have access to the following tools:");
-  for (const tool of tools) {
-    parts.push(`\nTool: ${tool.function.name}`);
-    if (tool.function.description) {
-      parts.push(`Description: ${tool.function.description}`);
-    }
-    if (tool.function.parameters) {
-      parts.push(`Parameters: ${JSON.stringify(tool.function.parameters)}`);
+  // Describe available tools (skip if none provided)
+  if (tools.length > 0) {
+    parts.push("You have access to the following tools:");
+    for (const tool of tools) {
+      parts.push(`\nTool: ${tool.function.name}`);
+      if (tool.function.description) {
+        parts.push(`Description: ${tool.function.description}`);
+      }
+      if (tool.function.parameters) {
+        parts.push(`Parameters: ${JSON.stringify(tool.function.parameters)}`);
+      }
     }
   }
 
